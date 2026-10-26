@@ -195,3 +195,23 @@ p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
   transition: opacity .2s, transform .2s; max-width: 320px; text-align: center;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- partners (under a result) ---------- */
+.partners { margin: 22px 0 10px; }
+.partners-title {
+  font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600; margin: 0 0 10px;
+}
+.partner {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 15px; margin: 0 0 8px;
+  border: 1px solid var(--line); border-radius: 14px;
+  background: var(--surface); color: var(--fg); text-decoration: none;
+  transition: border-color .15s ease, transform .12s ease;
+}
+.partner:active { transform: scale(.99); border-color: #33333f; }
+.partner-main { flex: 1; min-width: 0; }
+.partner-main b { display: block; font-size: 14px; font-weight: 600; margin-bottom: 2px; letter-spacing: -.01em; }
+.partner-main span { display: block; font-size: 12px; color: var(--muted); line-height: 1.35; }
+.partner-go { flex: none; font-size: 12px; font-weight: 600; color: var(--accent); }
+.partners-note { font-size: 11px; color: #6c6e7e; margin: 8px 0 0; line-height: 1.5; }

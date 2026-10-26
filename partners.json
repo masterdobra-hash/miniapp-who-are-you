@@ -1,0 +1,24 @@
+{
+  "updated": "2026-10-26",
+  "note": "Partner bots shown under the result card. Edit this file to change the list - no code change, no rebuild. Fields: name, url (must be t.me), description (one line), order (lower first, max 3 shown).",
+  "partners": [
+    {
+      "name": "PlayDeck",
+      "url": "https://t.me/PlayDeckBot",
+      "description": "250+ free games that run right inside Telegram",
+      "order": 1
+    },
+    {
+      "name": "on9wordchain",
+      "url": "https://t.me/on9wordchainbot",
+      "description": "Word chain — build a chain of words with the chat",
+      "order": 2
+    },
+    {
+      "name": "DoodleGator",
+      "url": "https://t.me/DoodleGatorBot",
+      "description": "Draw and guess, straight in your group chat",
+      "order": 3
+    }
+  ]
+}

@@ -20,8 +20,9 @@ thing that ever leaves the device is a link you send yourself.
 ```
 index.html      all screens in one page
 styles.css      the design system: dark, one accent per mode, 390 wide
-app.js          state machine, scoring, canvas cards, duel links
+app.js          state machine, scoring, canvas cards, duel links, partner block
 data.js         questions + weights, 8 archetypes, 30 daily puzzles
+partners.json   the partner list under a result — edit this, not the code
 assets/art/     8 archetype pictures + 3 mode icons (generated, PNG)
 assets/og.png   1200×630 preview for link unfurls
 assets/fonts/   Inter (variable), served from this folder
@@ -42,6 +43,27 @@ Every card carries the site address in small type above the footer, because a
 picture posted in a chat with no link is a dead end. If the site moves to its
 own domain, change `SITE` at the top of `app.js` (and the links in `README`
 and `index.html`) — the cards pick it up.
+
+## Partner block
+
+Under the result card (quiz) and under the puzzle result there is a short block,
+"Also worth 30 seconds", with up to three partner bots. The list lives in
+`partners.json`:
+
+```json
+{ "partners": [
+  { "name": "PlayDeck", "url": "https://t.me/PlayDeckBot",
+    "description": "250+ free games that run right inside Telegram", "order": 1 }
+] }
+```
+
+Change that file to change the list — no code edit, no rebuild. Rules the code
+enforces: only `https://t.me/<handle>` links are rendered, `order` sorts them,
+the first three are shown, and the file is fetched lazily — only when a result
+screen first appears — so it costs nothing on first load. If the fetch fails or
+the JSON is broken, the block stays hidden and nothing is logged. Links open in
+a new tab with `rel="sponsored noopener noreferrer"`; no UTM, no pixel, no
+counter.
 
 ## Duel links
 
@@ -64,7 +86,10 @@ and the challenger is never notified when someone plays.
 python3 -m http.server 8099     # then open http://127.0.0.1:8099/
 ```
 
-Opening `index.html` with `file://` also works — there is nothing to fetch.
+Opening `index.html` with `file://` also works: the quiz, the puzzle and the
+cards need nothing from the network. The only fetched file is `partners.json`
+(same origin), and on `file://` the browser blocks it — the partner block then
+simply stays hidden.
 
 ## Publish
 

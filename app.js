@@ -598,6 +598,7 @@
       renderResult();
       toast("Unlocked. Your reading is below.");
     };
+    renderPartners("res-partners");
   }
 
   function renderReading(a) {
@@ -612,6 +613,52 @@
       '<h4>One thing to try this week</h4><p>' + esc(a.challenge) + "</p>" +
       '<h4>Play it with a friend</h4><p>Send this to the friend who would answer differently. ' +
       "Their result is free too.</p>";
+  }
+
+  /* ------------------------------------------------------------ partners */
+  /* The list lives in partners.json so it can change without touching code.
+     It is fetched lazily, only when a result screen first appears, and a
+     failure simply leaves the block hidden - no error, no fallback content. */
+  const PARTNERS_FILE = "partners.json";
+  let partnersRequest = null;
+
+  const loadPartners = () => {
+    if (partnersRequest) return partnersRequest;
+    partnersRequest = new Promise((resolve) => {
+      if (!window.fetch) return resolve([]);
+      const done = (list) => resolve(list);
+      const timer = setTimeout(() => done([]), 4000);
+      fetch(PARTNERS_FILE, { credentials: "omit" })
+        .then((res) => (res && res.ok ? res.json() : null))
+        .then((data) => {
+          clearTimeout(timer);
+          const raw = Array.isArray(data) ? data : (data && Array.isArray(data.partners) ? data.partners : []);
+          const list = raw
+            .filter((p) => p && typeof p.name === "string" && /^https:\/\/t\.me\/[A-Za-z0-9_]+\/?$/.test(String(p.url || "")))
+            .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
+            .slice(0, 3);
+          done(list);
+        })
+        .catch(() => { clearTimeout(timer); done([]); });
+    });
+    return partnersRequest;
+  };
+
+  function renderPartners(boxId) {
+    const box = $(boxId);
+    if (!box) return;
+    loadPartners().then((list) => {
+      if (!list.length) { box.hidden = true; box.innerHTML = ""; return; }
+      box.innerHTML =
+        '<div class="partners-title">Also worth 30 seconds</div>' +
+        list.map((p) =>
+          '<a class="partner" href="' + esc(p.url) + '" target="_blank" rel="sponsored noopener noreferrer">' +
+          '<span class="partner-main"><b>' + esc(p.name) + '</b>' +
+          '<span>' + esc(p.description || "") + "</span></span>" +
+          '<span class="partner-go">Open</span></a>').join("") +
+        '<div class="partners-note">Partner links · open in Telegram · no tracking</div>';
+      box.hidden = false;
+    });
   }
 
   /* ---------------------------------------------------------------- daily */
@@ -728,6 +775,7 @@
       saved.correct ? "Today's puzzle took me " + saved.seconds + "s. Your turn:" : "Today's puzzle beat me. Your turn:",
       baseLink({ utm_medium: "daily-share" })
     );
+    renderPartners("daily-partners");
   }
 
   function renderStreak() {
