@@ -151,6 +151,14 @@
 
   /* ------------------------------------------------------------ card draw */
   const CARD = { W: 1080, H: 1350, ART_H: 900, BG: "#09090d", FG: "#f4f4f7" };
+  const FONT_SPECS = ["400 36px Inter", "500 34px Inter", "500 30px Inter", "700 104px Inter", "600 26px Inter"];
+
+  /* Canvas falls back to a system font if Inter has not loaded yet — wait for it. */
+  async function ensureFonts() {
+    try {
+      await Promise.all(FONT_SPECS.map((s) => document.fonts.load(s)));
+    } catch (e) {}
+  }
   const artCache = {};
 
   function loadImage(url) {
@@ -255,6 +263,7 @@
    * opts: {labelLeft,labelRight,accent,headline,subline,number,footerRight,art,motif}
    */
   async function drawPoster(opts) {
+    await ensureFonts();
     const W = CARD.W;
     const H = CARD.H;
     const ART_H = CARD.ART_H;
