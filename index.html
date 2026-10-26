@@ -201,6 +201,22 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+  /* Telegram Mini App bootstrap: fill the screen and paint the chrome to match the page.
+     In a normal browser window.Telegram is undefined and this block does nothing. */
+  (function () {
+    var tg = window.Telegram && window.Telegram.WebApp;
+    if (!tg) return;
+    try {
+      tg.ready();
+      tg.expand();
+      if (tg.setHeaderColor) tg.setHeaderColor('#09090d');
+      if (tg.setBackgroundColor) tg.setBackgroundColor('#09090d');
+      if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+    } catch (e) {}
+  })();
+</script>
 <script src="data.js"></script>
 <script src="i18n.js"></script>
 <script src="app.js"></script>
