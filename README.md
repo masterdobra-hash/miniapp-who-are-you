@@ -19,17 +19,21 @@ thing that ever leaves the device is a link you send yourself.
 
 ```
 index.html      all screens in one page
-styles.css      the design system: dark, one accent per mode, 390 wide
+styles.css      the design system: dark, one accent per mode, 390 wide,
+                plus the embedded Cyrillic-capable font
 app.js          state machine, scoring, canvas cards, duel links, partner block
-data.js         questions + weights, 8 archetypes, 30 daily puzzles
+data.js         quiz content per language (en + ru): questions + weights,
+                8 archetypes, 30 daily puzzles each
+i18n.js         interface strings per language: labels, buttons, toasts,
+                share texts, the text drawn on the cards
 partners.json   the partner list under a result — edit this, not the code
 assets/art/     8 archetype pictures + 3 mode icons (generated, PNG)
 assets/og.png   1200×630 preview for link unfurls
-assets/fonts/   Inter (variable), served from this folder
+assets/fonts/   Inter.ttf — the source the embedded subset is cut from
 ```
 
-`data.js` is generated from the Telegram prototype's `miniapp/data/quiz.json`
-and `data/daily_puzzles.json`; it is plain JS objects, so editing it by hand is
+`data.js` started as the Telegram prototype's `miniapp/data/quiz.json` and
+`data/daily_puzzles.json`; it is plain JS objects, so editing it by hand is
 fine — the page picks the change up on reload.
 
 ## Cards
@@ -57,6 +61,9 @@ Under the result card (quiz) and under the puzzle result there is a short block,
 ] }
 ```
 
+Add `name_ru` / `description_ru` to a partner to localise its line; without
+them the base `name` / `description` is shown in both languages.
+
 Change that file to change the list — no code edit, no rebuild. Rules the code
 enforces: only `https://t.me/<handle>` links are rendered, `order` sorts them,
 the first three are shown, and the file is fetched lazily — only when a result
@@ -79,6 +86,61 @@ and the score is computed locally; the challenger's answers never touch a
 server. Two consequences worth knowing: anyone who can read the link can decode
 it (base64, not encryption — fine for a party game, don't put secrets in it),
 and the challenger is never notified when someone plays.
+
+## Languages
+
+The site speaks English and Russian. The language is picked in this order:
+
+1. `?lang=ru` / `?lang=en` in the URL — this is what an ad link or a UTM
+   campaign uses, and it beats everything else;
+2. a choice the visitor made with the RU/EN switch on the home screen
+   (`localStorage.way_lang`);
+3. `navigator.language`: anything starting with `ru` gets Russian, everything
+   else gets English.
+
+The switch also writes the chosen language into the address bar
+(`history.replaceState`), so a copied URL keeps it. Shared links deliberately
+carry **no** `lang`: a duel or a result link opens in the receiver's own
+language. Duel payloads store answer *indices*, so a Russian challenge works in
+an English app and the other way round.
+
+What is translated: every question and answer option, all eight archetypes
+(name, tagline, description, strengths, weaknesses, compatibility, challenge,
+share line), the result screen and the reading, the paywall copy, the daily
+puzzle screen (30 puzzles per language), the duel screens, the partner block
+caption, every toast and error message, the share texts — and the canvas card:
+
+- `data.js` → `locales.<lang>.{archetypes,questions,puzzles}`
+- `i18n.js` → `<lang>.{…}` for every piece of interface text, with `{placeholders}`
+
+Adding a language means adding one entry to each file and, if the language
+needs it, its plural forms in `dayForms` (2 entries for languages with a
+singular/plural split, 3 for Slavic-style rules — `plural()` in `app.js` handles
+both). Nothing else in the code is language-specific.
+
+Two daily puzzles had to be rebuilt rather than translated, because they only
+work on English words: the anagram (LISTEN → SILENT) became КОЛОС → СОКОЛ, and
+the letter series (A, C, F, J, O) became the Russian series А, В, Е, И, Н. Both
+sit in the same slot as their English twin, and the answer may sit at a
+different index — each language has its own puzzle for that day.
+
+## Fonts and Cyrillic
+
+`styles.css` carries Inter as a base64 `data:` URI: Latin + Cyrillic, 40 KB
+worth of woff2 (variable weight axis), so the page makes **no font request**
+and the canvas cards get real Cyrillic glyphs instead of tofu on a machine with
+no Russian system font. It was produced with:
+
+```bash
+pyftsubset assets/fonts/Inter.ttf --unicodes-file=uni.txt \
+  --layout-features=kern,liga --flavor=woff2 --no-hinting
+# opsz was pinned at 20 with fontTools.varLib.instancer first; wght stays variable
+```
+
+`uni.txt` is the Latin + Cyrillic + punctuation range; add a range there and
+re-run the two commands if a new language needs more glyphs. `canvas` uses the
+same family (`fontStr()` in `app.js`), and `ensureFonts()` waits for the face
+and pulls the Cyrillic glyphs before the first card is drawn.
 
 ## Run it locally
 

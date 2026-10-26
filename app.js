@@ -1,17 +1,19 @@
 /* Who are you? — static build.
    No server, no API, no build step: scoring, the daily puzzle, the share card
-   (canvas) and the duel link all live in this file. */
+   (canvas) and the duel link all live in this file.
+
+   Two languages, `en` and `ru`. The interface strings come from i18n.js, the
+   quiz content from data.js; both are picked by `LOCALE`, which comes from
+   ?lang= first, then localStorage, then the browser's own language. */
 
 (() => {
   "use strict";
 
   const DATA = window.WAY_DATA;
+  const UI = window.WAY_UI;
   const $ = (id) => document.getElementById(id);
   const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const SITE = "masterdobra-hash.github.io/miniapp-who-are-you";
-  const QUESTIONS = DATA.questions;
-  const ARCHETYPES = DATA.archetypes;
-  const PUZZLES = DATA.puzzles;
   const ACCENT = { quiz: "#5b8cff", daily: "#facc15", duel: "#6ee7b7" };
 
   /* ------------------------------------------------------------- storage */
@@ -26,6 +28,56 @@
       try { localStorage.setItem("way_" + key, JSON.stringify(value)); } catch (e) {}
     },
   };
+
+  /* -------------------------------------------------------------- locale */
+  const normalizeLang = (value) => {
+    const s = String(value || "").trim().toLowerCase();
+    if (!s) return null;
+    if (s === "ru" || s.startsWith("ru-") || s.startsWith("ru_")) return "ru";
+    if (s === "en" || s.startsWith("en-") || s.startsWith("en_")) return "en";
+    return null;
+  };
+
+  /* ?lang= beats everything, then a previous choice, then the browser. */
+  function resolveLocale() {
+    let fromQuery = null;
+    try {
+      fromQuery = normalizeLang(new URLSearchParams(location.search).get("lang"));
+    } catch (e) {}
+    if (fromQuery && UI[fromQuery]) return fromQuery;
+
+    const saved = normalizeLang(LS.get("lang", null));
+    if (saved && UI[saved]) return saved;
+
+    const nav = (navigator.languages && navigator.languages[0]) || navigator.language || "";
+    return normalizeLang(nav) === "ru" ? "ru" : "en";
+  }
+
+  let LOCALE = resolveLocale();
+  let L = DATA.locales[LOCALE] || DATA.locales[DATA.defaultLocale];
+  let T = UI[LOCALE] || UI.en;
+  let QUESTIONS = L.questions;
+  let ARCHETYPES = L.archetypes;
+  let PUZZLES = L.puzzles;
+
+  /* {name} / {n} / {p} placeholders */
+  const fmt = (template, vars) => String(template).replace(/\{(\w+)\}/g, (m, key) =>
+    (vars && vars[key] != null ? String(vars[key]) : m));
+
+  /* ru needs three forms, en two; this covers both with one function. */
+  function plural(n, forms) {
+    const abs = Math.abs(Number(n) || 0);
+    if (!forms || !forms.length) return "";
+    if (forms.length === 1) return forms[0];
+    if (forms.length === 2) return abs === 1 ? forms[0] : forms[1];
+    const tail100 = abs % 100;
+    if (tail100 >= 11 && tail100 <= 14) return forms[2];
+    const tail10 = abs % 10;
+    if (tail10 === 1) return forms[0];
+    if (tail10 >= 2 && tail10 <= 4) return forms[1];
+    return forms[2];
+  }
+  const dayWord = (n) => plural(n, T.dayForms);
 
   const S = {
     screen: "s-home",
@@ -101,14 +153,72 @@
     if (hex) document.documentElement.style.setProperty("--accent", hex);
   };
 
+  /* English says "Alex's answers", Russian keeps the name as it is. */
   const poss = (name) => {
     const n = (name || "").trim();
+    if (LOCALE !== "en") return n;
     if (!n) return "their";
     if (/^(you|your)$/i.test(n)) return "your";
     return n + (n.endsWith("s") ? "'" : "'s");
   };
 
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  /* ---------------------------------------------------------- translations */
+  function setMeta(id, value) {
+    const el = $(id) || document.querySelector('meta[name="' + id + '"]');
+    if (el) el.setAttribute("content", value);
+  }
+
+  function applyI18n() {
+    document.documentElement.lang = T.htmlLang;
+    document.title = T.metaTitle;
+    setMeta("meta-description", T.metaDescription);
+    setMeta("meta-og-title", T.ogTitle);
+    setMeta("meta-og-description", T.ogDescription);
+
+    document.querySelectorAll("[data-i18n]").forEach((el) => {
+      const key = el.getAttribute("data-i18n");
+      if (T[key] != null) el.textContent = T[key];
+    });
+    document.querySelectorAll("[data-i18n-ph]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-ph");
+      if (T[key] != null) el.setAttribute("placeholder", T[key]);
+    });
+    document.querySelectorAll("[data-i18n-aria]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-aria");
+      if (T[key] != null) el.setAttribute("aria-label", T[key]);
+    });
+    document.querySelectorAll("#lang-switch button").forEach((b) => {
+      b.setAttribute("aria-pressed", String(b.dataset.lang === LOCALE));
+    });
+  }
+
+  function syncUrlLang() {
+    try {
+      const url = new URL(location.href);
+      if (url.searchParams.get("lang") !== LOCALE) {
+        url.searchParams.set("lang", LOCALE);
+        history.replaceState(null, "", url.toString());
+      }
+    } catch (e) {}
+  }
+
+  function setLang(next) {
+    if (!UI[next] || next === LOCALE) return;
+    LOCALE = next;
+    LS.set("lang", next);
+    L = DATA.locales[next];
+    T = UI[next];
+    QUESTIONS = L.questions;
+    ARCHETYPES = L.archetypes;
+    PUZZLES = L.puzzles;
+    MAX_SCORES = maxScores();
+    applyI18n();
+    renderStreak();
+    syncUrlLang();
+    if (S.screen === "s-result" && S.result) renderResult();
+  }
 
   /* -------------------------------------------------------------- scoring */
   const archetypeById = (id) => ARCHETYPES.find((a) => a.id === id) || ARCHETYPES[0];
@@ -127,7 +237,7 @@
     });
     return totals;
   }
-  const MAX_SCORES = maxScores();
+  let MAX_SCORES = maxScores();
 
   /** Same algorithm as the prototype's quiz_engine.score(). */
   function scoreAnswers(answers) {
@@ -153,11 +263,14 @@
   /* ------------------------------------------------------------ card draw */
   const CARD = { W: 1080, H: 1350, ART_H: 860, BG: "#09090d", FG: "#f4f4f7" };
   const FONT_SPECS = ["400 36px Inter", "500 34px Inter", "500 30px Inter", "700 104px Inter", "600 26px Inter"];
+  const GLYPH_SAMPLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789" +
+    "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя«»—…№%#";
 
-  /* Canvas falls back to a system font if Inter has not loaded yet — wait for it. */
+  /* Canvas falls back to a system font if Inter has not loaded yet — wait for it.
+     The sample text makes the browser pull the Cyrillic glyphs as well. */
   async function ensureFonts() {
     try {
-      await Promise.all(FONT_SPECS.map((s) => document.fonts.load(s)));
+      await Promise.all(FONT_SPECS.map((s) => document.fonts.load(s, GLYPH_SAMPLE)));
     } catch (e) {}
   }
   const artCache = {};
@@ -230,8 +343,6 @@
     if (cur) lines.push(cur);
     return lines;
   }
-
-  const shadeCache = {};
 
   function gridMotif(ctx, c) {
     const cell = 96;
@@ -378,13 +489,13 @@
   function quizCard(result) {
     const a = archetypeById(result.aid);
     return drawPoster({
-      labelLeft: "WHO ARE YOU?",
-      labelRight: "AI QUIZ",
+      labelLeft: T.cardQuizLabel,
+      labelRight: T.cardQuizRight,
       accent: a.color,
       headline: a.name,
       subline: a.tagline,
-      number: "RESULT #" + result.number,
-      footerRight: result.match + "% MATCH",
+      number: fmt(T.cardResultNum, { n: result.number }),
+      footerRight: fmt(T.cardMatch, { p: result.match }),
       art: "assets/art/" + a.id + ".png",
     });
   }
@@ -392,16 +503,16 @@
   function dailyCard(payload) {
     const streak = payload.streak || 0;
     const sub = streak
-      ? "Streak: " + streak + " day" + (streak === 1 ? "" : "s") + "."
-      : "First solve. Tomorrow counts double.";
+      ? fmt(T.cardDailySubStreak, { n: streak, day: dayWord(streak) })
+      : T.cardDailySubFirst;
     return drawPoster({
-      labelLeft: "DAILY PUZZLE",
+      labelLeft: T.cardDailyLabel,
       labelRight: payload.date,
       accent: ACCENT.daily,
-      headline: "Solved in " + payload.seconds + "s",
+      headline: fmt(T.cardDailyHeadline, { s: payload.seconds }),
       subline: sub,
       number: "#" + payload.number,
-      footerRight: streak ? streak + " DAY STREAK" : "FIRST SOLVE",
+      footerRight: streak ? fmt(T.cardStreakFooter, { n: streak, day: dayWord(streak).toUpperCase() }) : T.cardFirstSolve,
       motif: "grid",
     });
   }
@@ -410,12 +521,16 @@
     const a = payload.ownerAid ? archetypeById(payload.ownerAid) : null;
     const pct = payload.total ? Math.round((100 * payload.score) / payload.total) : 0;
     return drawPoster({
-      labelLeft: "HOW WELL DO YOU KNOW ME?",
-      labelRight: "DUEL",
+      labelLeft: T.cardDuelLabel,
+      labelRight: T.cardDuelRight,
       accent: a ? a.color : ACCENT.duel,
       headline: pct + "%",
-      subline: payload.guesser + " guessed " + payload.score + " of " + payload.total +
-        " of " + poss(payload.owner) + " answers.",
+      subline: fmt(T.cardDuelSub, {
+        guesser: payload.guesser,
+        score: payload.score,
+        total: payload.total,
+        owner: poss(payload.owner),
+      }),
       number: "#" + payload.number,
       footerRight: payload.score + "/" + payload.total,
       art: a ? "assets/art/" + a.id + ".png" : null,
@@ -437,12 +552,12 @@
 
   async function saveCard(canvas, name) {
     const blob = await canvasBlob(canvas);
-    if (!blob) { toast("Could not build the image"); return; }
+    if (!blob) { toast(T.toastNoImage); return; }
     const file = new File([blob], name + ".png", { type: "image/png" });
 
     if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
       try {
-        await navigator.share({ files: [file], title: "Who are you?", text: canvas._shareText || "" });
+        await navigator.share({ files: [file], title: T.shareTitle, text: canvas._shareText || "" });
         return;
       } catch (e) {
         if (e && e.name === "AbortError") return;
@@ -456,7 +571,7 @@
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
-    toast("Saved — the image is in your downloads");
+    toast(T.toastSaved);
   }
 
   /* --------------------------------------------------------------- sharing */
@@ -472,7 +587,7 @@
   async function shareText(text, url) {
     if (navigator.share) {
       try {
-        await navigator.share({ title: "Who are you?", text: text, url: url });
+        await navigator.share({ title: T.shareTitle, text: text, url: url });
         return;
       } catch (e) {
         if (e && e.name === "AbortError") return;
@@ -480,9 +595,9 @@
     }
     try {
       await navigator.clipboard.writeText(text + " " + url);
-      toast("Copied — paste it anywhere");
+      toast(T.toastCopied);
     } catch (e) {
-      toast("Copy the address bar and send it");
+      toast(T.toastCopyManual);
     }
   }
 
@@ -500,20 +615,23 @@
     const q = QUESTIONS[S.qIndex];
     const total = QUESTIONS.length;
     $("quiz-label").textContent =
-      S.mode === "duel-create" ? "About you · " + (S.qIndex + 1) + " / " + total :
-      S.mode === "duel-guess" ? "Your guess · " + (S.qIndex + 1) + " / " + total :
-      "Question " + (S.qIndex + 1) + " / " + total;
+      S.mode === "duel-create" ? fmt(T.quizAboutYou, { i: S.qIndex + 1, n: total }) :
+      S.mode === "duel-guess" ? fmt(T.quizYourGuess, { i: S.qIndex + 1, n: total }) :
+      fmt(T.quizQuestion, { i: S.qIndex + 1, n: total });
 
     $("quiz-dots").innerHTML = QUESTIONS.map((_, i) =>
       '<i class="' + (i <= S.qIndex ? "done" : "") + '"></i>').join("");
 
     let frame = "";
-    if (S.mode === "duel-guess" && S.challenge) frame = "How well do you know " + esc(S.challenge.name) + "?";
+    if (S.mode === "duel-guess" && S.challenge) {
+      frame = fmt(T.quizFrame, { name: esc(S.challenge.name) });
+    }
     $("quiz-q").innerHTML = (frame ? '<span class="q-frame">' + frame + "</span>" : "") + esc(q.text);
+    const name = S.challenge ? S.challenge.name : "";
     $("quiz-note").textContent =
-      S.mode === "duel-create" ? "Answer honestly — a friend will guess these." :
-      S.mode === "duel-guess" ? "Pick what you think " + S.challenge.name + " chose." :
-      "No wrong answers. That is the point.";
+      S.mode === "duel-create" ? T.quizNoteCreate :
+      S.mode === "duel-guess" ? fmt(T.quizNoteGuess, { name: name }) :
+      T.quizNoteQuiz;
 
     const box = $("quiz-options");
     box.innerHTML = "";
@@ -570,13 +688,13 @@
     accent(a.color);
     $("res-art").src = "assets/art/" + a.id + ".png";
     $("res-name").textContent = a.name;
-    $("res-match").textContent = r.match + "% match";
-    $("res-num").textContent = "Result #" + r.number;
+    $("res-match").textContent = fmt(T.resultMatch, { p: r.match });
+    $("res-num").textContent = fmt(T.resultNum, { n: r.number });
     $("res-tagline").textContent = a.tagline;
-    $("res-num-2").textContent = r.number;
+    $("res-footer").textContent = fmt(T.resultFooter, { n: r.number });
 
     const unlocked = (LS.get("unlocked", []) || []).indexOf(r.number) >= 0;
-    const lockedTitles = ["Strengths", "What works against you", "Who you fit with", "One thing to try this week"];
+    const lockedTitles = [T.lockedStrengths, T.lockedWeak, T.lockedCompat, T.lockedChallenge];
     $("res-locked").innerHTML = lockedTitles.map((x) =>
       '<div class="locked-item"><span class="lock">🔒</span><span>' + esc(x) +
       '</span><span class="bar"></span></div>').join("");
@@ -589,14 +707,14 @@
       const canvas = await quizCard(r);
       canvas._shareText = a.share_line;
       S.lastCard = canvas;
-      await saveCard(canvas, "who-are-you-" + r.number);
+      await saveCard(canvas, fmt(T.fileNameQuiz, { n: r.number }));
     };
     $("res-unlock").onclick = () => {
       const list = LS.get("unlocked", []) || [];
       list.push(r.number);
       LS.set("unlocked", list);
       renderResult();
-      toast("Unlocked. Your reading is below.");
+      toast(T.toastUnlocked);
     };
     renderPartners("res-partners");
   }
@@ -606,19 +724,20 @@
     const box = $("res-reading");
     box.innerHTML =
       "<p>" + esc(a.description) + "</p>" +
-      '<h4>What you are good at</h4><ul>' + a.strengths.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>" +
-      '<h4>What works against you</h4><ul>' + a.weaknesses.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>" +
-      '<h4>Who you fit with</h4><div class="compat"><img src="assets/art/' + partner.id + '.png" alt=""><div><b>' +
+      "<h4>" + esc(T.readingGood) + "</h4><ul>" + a.strengths.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>" +
+      "<h4>" + esc(T.readingBad) + "</h4><ul>" + a.weaknesses.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>" +
+      "<h4>" + esc(T.readingCompat) + "</h4><div class=\"compat\"><img src=\"assets/art/" + partner.id + ".png\" alt=\"\"><div><b>" +
       esc(partner.name) + "</b><span>" + esc(a.compatible_why) + "</span></div></div>" +
-      '<h4>One thing to try this week</h4><p>' + esc(a.challenge) + "</p>" +
-      '<h4>Play it with a friend</h4><p>Send this to the friend who would answer differently. ' +
-      "Their result is free too.</p>";
+      "<h4>" + esc(T.readingChallenge) + "</h4><p>" + esc(a.challenge) + "</p>" +
+      "<h4>" + esc(T.readingPlayTitle) + "</h4><p>" + esc(T.readingPlayText) + "</p>";
   }
 
   /* ------------------------------------------------------------ partners */
   /* The list lives in partners.json so it can change without touching code.
      It is fetched lazily, only when a result screen first appears, and a
-     failure simply leaves the block hidden - no error, no fallback content. */
+     failure simply leaves the block hidden - no error, no fallback content.
+     Optional `name_ru` / `description_ru` localise a partner line; when they
+     are absent the base name/description is used. */
   const PARTNERS_FILE = "partners.json";
   let partnersRequest = null;
 
@@ -636,7 +755,12 @@
           const list = raw
             .filter((p) => p && typeof p.name === "string" && /^https:\/\/t\.me\/[A-Za-z0-9_]+\/?$/.test(String(p.url || "")))
             .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
-            .slice(0, 3);
+            .slice(0, 3)
+            .map((p) => ({
+              name: LOCALE === "ru" && p.name_ru ? p.name_ru : p.name,
+              description: LOCALE === "ru" && p.description_ru ? p.description_ru : (p.description || ""),
+              url: p.url,
+            }));
           done(list);
         })
         .catch(() => { clearTimeout(timer); done([]); });
@@ -650,13 +774,13 @@
     loadPartners().then((list) => {
       if (!list.length) { box.hidden = true; box.innerHTML = ""; return; }
       box.innerHTML =
-        '<div class="partners-title">Also worth 30 seconds</div>' +
+        '<div class="partners-title">' + esc(T.partnerTitle) + "</div>" +
         list.map((p) =>
           '<a class="partner" href="' + esc(p.url) + '" target="_blank" rel="sponsored noopener noreferrer">' +
-          '<span class="partner-main"><b>' + esc(p.name) + '</b>' +
-          '<span>' + esc(p.description || "") + "</span></span>" +
-          '<span class="partner-go">Open</span></a>').join("") +
-        '<div class="partners-note">Partner links · open in Telegram · no tracking</div>';
+          '<span class="partner-main"><b>' + esc(p.name) + "</b>" +
+          "<span>" + esc(p.description) + "</span></span>" +
+          '<span class="partner-go">' + esc(T.partnerOpen) + "</span></a>").join("") +
+        '<div class="partners-note">' + esc(T.partnerNote) + "</div>";
       box.hidden = false;
     });
   }
@@ -671,7 +795,7 @@
     $("daily-date").textContent = day;
     $("daily-prompt").textContent = today.prompt;
     $("daily-detail").textContent = today.detail || "";
-    $("daily-timer").textContent = "0.0s";
+    $("daily-timer").textContent = fmt(T.timerText, { s: "0.0" });
     $("daily-after").hidden = true;
     $("daily-hint").hidden = true;
 
@@ -701,7 +825,7 @@
     timerStart = performance.now();
     clearInterval(timerHandle);
     timerHandle = setInterval(() => {
-      $("daily-timer").textContent = ((performance.now() - timerStart) / 1000).toFixed(1) + "s";
+      $("daily-timer").textContent = fmt(T.timerText, { s: ((performance.now() - timerStart) / 1000).toFixed(1) });
     }, 100);
   }
 
@@ -710,7 +834,7 @@
     document.querySelectorAll("#daily-choices .choice").forEach((b) => { b.disabled = true; });
     const buttons = document.querySelectorAll("#daily-choices .choice");
     buttons[puzzle.answer].classList.add("correct");
-    $("daily-timer").textContent = saved.seconds + "s";
+    $("daily-timer").textContent = fmt(T.timerText, { s: saved.seconds });
     $("daily-hint").hidden = false;
     await paintDaily(saved, puzzle);
   }
@@ -751,28 +875,28 @@
 
   async function paintDaily(saved, puzzle) {
     $("daily-verdict").textContent = saved.correct
-      ? "Solved in " + saved.seconds + "s"
-      : "Not today — it was " + puzzle.choices[puzzle.answer];
+      ? fmt(T.dailySolved, { s: saved.seconds })
+      : fmt(T.dailyWrong, { a: puzzle.choices[puzzle.answer] });
     $("daily-explain").textContent = puzzle.explain + (saved.correct
-      ? " Streak: " + saved.streak + " day" + (saved.streak === 1 ? "" : "s") + "."
-      : " Streak reset. Tomorrow, 00:00 UTC.");
+      ? fmt(T.dailyStreakSuffix, { n: saved.streak, day: dayWord(saved.streak) })
+      : T.dailyResetSuffix);
     $("daily-after").hidden = false;
 
     const wrap = $("daily-cardwrap");
     const shareBtn = $("daily-share");
     if (saved.correct) {
       const canvas = await dailyCard(saved);
-      canvas._shareText = "Solved today's puzzle in " + saved.seconds + "s. Streak: " + saved.streak + ". Your turn:";
+      canvas._shareText = fmt(T.shareDailyOk, { s: saved.seconds, n: saved.streak });
       await paint(canvas, wrap);
       shareBtn.hidden = false;
-      shareBtn.onclick = () => saveCard(canvas, "daily-" + saved.date);
+      shareBtn.onclick = () => saveCard(canvas, fmt(T.fileNameDaily, { d: saved.date }));
     } else {
       wrap.innerHTML = "";
       shareBtn.hidden = true;
     }
     $("daily-share-link").hidden = false;
     $("daily-share-link").onclick = () => shareText(
-      saved.correct ? "Today's puzzle took me " + saved.seconds + "s. Your turn:" : "Today's puzzle beat me. Your turn:",
+      saved.correct ? fmt(T.shareDailyOk, { s: saved.seconds, n: saved.streak }) : T.shareDailyFail,
       baseLink({ utm_medium: "daily-share" })
     );
     renderPartners("daily-partners");
@@ -782,7 +906,7 @@
     const el = $("home-streak");
     if (S.streak > 0) {
       el.hidden = false;
-      el.innerHTML = "🔥 <b>" + S.streak + "</b> day streak";
+      el.innerHTML = fmt(T.streakText, { n: S.streak, day: dayWord(S.streak) });
     } else {
       el.hidden = true;
     }
@@ -826,7 +950,7 @@
 
   function createDuel() {
     const s = scoreAnswers(S.answers);
-    const name = (S.name || "").trim() || "your friend";
+    const name = (S.name || "").trim() || T.defaultFriend;
     const number = "U-" + randId(4);
     const challenge = { name: name, answers: S.answers.slice(), aid: s.winner, number: number };
     const link = duelLink(challenge, number);
@@ -834,13 +958,12 @@
 
     $("duel-own-art").src = "assets/art/" + s.winner + ".png";
     $("duel-link").textContent = link;
-    $("duel-share").onclick = () => shareText(
-      "I answered 5 questions about myself. How many can you guess?", link);
+    $("duel-share").onclick = () => shareText(T.shareDuelInvite, link);
     $("duel-copy").onclick = async () => {
       try {
         await navigator.clipboard.writeText(link);
-        toast("Link copied");
-      } catch (e) { toast("Copy it from the box"); }
+        toast(T.toastLinkCopied);
+      } catch (e) { toast(T.toastCopyFromBox); }
     };
     $("duel-open").onclick = () => { location.href = link; };
     show("s-duel-invite");
@@ -851,18 +974,18 @@
       const p = b64url.decode(payloadEncoded);
       if (!p || !Array.isArray(p.a) || p.a.length !== QUESTIONS.length) throw new Error("bad duel");
       S.challenge = {
-        name: p.n || "your friend",
+        name: p.n || T.defaultFriend,
         answers: p.a,
         aid: p.c,
         number: p.t,
       };
       accent(ACCENT.duel);
-      $("duel-intro-title").textContent = "How well do you know " + S.challenge.name + "?";
+      $("duel-intro-title").textContent = fmt(T.duelIntroTitle, { name: S.challenge.name });
       $("duel-intro-name").value = S.name || "";
       show("s-duel-intro");
       return true;
     } catch (e) {
-      toast("That challenge link is broken");
+      toast(T.toastBadLink);
       return false;
     }
   }
@@ -882,38 +1005,31 @@
     const c = S.challenge;
     const score = c.answers.reduce((n, ans, i) => n + (S.answers[i] === ans ? 1 : 0), 0);
     const total = c.answers.length;
-    const verdicts = {
-      5: "You know them better than they know themselves. Suspicious.",
-      4: "Dangerously accurate.",
-      3: "Solid. Not psychic, but solid.",
-      2: "Most people land here. That is the point.",
-      1: "You two should probably talk.",
-      0: "Bold of you to try.",
-    };
+    const verdicts = T.duelVerdicts;
     const payload = {
       number: "U-" + randId(4),
       owner: c.name,
       ownerAid: c.aid,
-      guesser: S.name || "A friend",
+      guesser: S.name || T.defaultGuesser,
       score: score,
       total: total,
     };
     S.duelResult = payload;
     LS.set("lastGuess", { payload: payload, at: Date.now() });
 
-    $("duel-result-label").textContent = "You vs " + c.name;
+    $("duel-result-label").textContent = fmt(T.duelResultLabel, { name: c.name });
     $("duel-score").textContent = score + " / " + total;
     $("duel-verdict").textContent = verdicts[score] || "";
     show("s-duel-result");
 
     const canvas = await duelCard(payload);
-    canvas._shareText = "I guessed " + score + " of " + total + " of " + c.name + "'s answers.";
+    canvas._shareText = fmt(T.shareDuelResult, { score: score, total: total, name: c.name });
     await paint(canvas, $("duel-cardwrap"));
 
     $("duel-result-share").onclick = async () => {
       const again = await duelCard(payload);
       again._shareText = canvas._shareText;
-      await saveCard(again, "duel-" + payload.number);
+      await saveCard(again, fmt(T.fileNameDuel, { n: payload.number }));
     };
     $("duel-result-link").onclick = () => shareText(canvas._shareText, baseLink({ utm_medium: "duel-result" }));
     $("duel-start-own").onclick = () => openDuelCreator();
@@ -932,6 +1048,9 @@
         else if (go === "duel") openDuelCreator();
       });
     });
+    document.querySelectorAll("#lang-switch button").forEach((b) => {
+      b.addEventListener("click", () => setLang(b.dataset.lang));
+    });
     $("duel-name-go").addEventListener("click", () => {
       S.name = ($("duel-name-input").value || "").trim();
       if (S.name) LS.set("name", S.name);
@@ -949,6 +1068,8 @@
   }
 
   async function boot() {
+    applyI18n();
+    syncUrlLang();
     renderStreak();
     bind();
     const saved = LS.get("lastResult", null);
@@ -972,7 +1093,15 @@
   }
 
   // debug hook: lets a test render a card without walking the whole flow
-  window.__app = { quizCard: quizCard, dailyCard: dailyCard, duelCard: duelCard, score: scoreAnswers };
+  window.__app = {
+    quizCard: quizCard,
+    dailyCard: dailyCard,
+    duelCard: duelCard,
+    score: scoreAnswers,
+    setLang: setLang,
+    locale: () => LOCALE,
+    texts: () => T,
+  };
 
   window.addEventListener("error", (e) => {
     document.title = "JSERR " + (e.message || "?") + " @" + (e.lineno || 0);

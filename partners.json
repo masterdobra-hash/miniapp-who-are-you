@@ -1,23 +1,26 @@
 {
   "updated": "2026-10-26",
-  "note": "Partner bots shown under the result card. Edit this file to change the list - no code change, no rebuild. Fields: name, url (must be t.me), description (one line), order (lower first, max 3 shown).",
+  "note": "Partner bots shown under the result card. Edit this file to change the list - no code change, no rebuild. Fields: name, url (must be t.me), description (one line), order (lower first, max 3 shown). Optional name_ru / description_ru are used when the app runs in Russian; without them the base name/description is shown.",
   "partners": [
     {
       "name": "PlayDeck",
       "url": "https://t.me/PlayDeckBot",
       "description": "250+ free games that run right inside Telegram",
+      "description_ru": "250+ бесплатных игр прямо внутри Telegram",
       "order": 1
     },
     {
       "name": "on9wordchain",
       "url": "https://t.me/on9wordchainbot",
       "description": "Word chain — build a chain of words with the chat",
+      "description_ru": "Цепочка слов — собирайте цепочку вместе с чатом",
       "order": 2
     },
     {
       "name": "DoodleGator",
       "url": "https://t.me/DoodleGatorBot",
       "description": "Draw and guess, straight in your group chat",
+      "description_ru": "Рисуй и угадывай прямо в групповом чате",
       "order": 3
     }
   ]
