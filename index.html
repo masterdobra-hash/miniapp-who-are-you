@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#09090d">
+<title>Who are you? — a 5-question personality quiz, a daily puzzle, a duel with a friend</title>
+<meta name="description" content="Five questions, eight archetypes, one card you can send to the group chat. Plus a daily puzzle and a duel where a friend guesses your answers. Free, no sign-up.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Who are you?">
+<meta property="og:description" content="Five questions. One honest answer. A card you can send to the group chat.">
+<meta property="og:image" content="assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/art/ico-quiz.png" type="image/png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- HOME -->
+  <section class="screen active" id="s-home">
+    <div class="topbar">
+      <div class="brand">Who are you?</div>
+      <div class="streak" id="home-streak" hidden>🔥 <b>0</b> day streak</div>
+    </div>
+    <h1>Three ways to find out who you actually are.</h1>
+    <p>No sign-up, no email, nothing stored on a server. One card at the end you can send to the group chat.</p>
+
+    <div class="modes">
+      <button class="mode" type="button" data-go="quiz" style="--c:#5b8cff">
+        <div class="mode-ico"><img src="assets/art/ico-quiz.png" alt=""></div>
+        <div style="flex:1">
+          <div class="tag">Quiz · 5 questions</div>
+          <h3>Who are you?</h3>
+          <p>One of eight archetypes. Free result card.</p>
+        </div>
+      </button>
+      <button class="mode" type="button" data-go="daily" style="--c:#facc15">
+        <div class="mode-ico"><img src="assets/art/ico-daily.png" alt=""></div>
+        <div style="flex:1">
+          <div class="tag">Daily · 30 seconds</div>
+          <h3>Puzzle of the day</h3>
+          <p>One puzzle, one streak, one bragging card.</p>
+        </div>
+      </button>
+      <button class="mode" type="button" data-go="duel" style="--c:#6ee7b7">
+        <div class="mode-ico"><img src="assets/art/ico-duel.png" alt=""></div>
+        <div style="flex:1">
+          <div class="tag">Duel · with a friend</div>
+          <h3>How well do you know me?</h3>
+          <p>Answer 5 about yourself. Send the link. They guess.</p>
+        </div>
+      </button>
+    </div>
+
+    <button class="btn ghost sub" type="button" id="home-last" hidden>See my last result</button>
+
+    <div class="spacer"></div>
+    <div class="footer-note">Everything runs in your browser. The full reading is free while the app is in beta.</div>
+  </section>
+
+  <!-- QUIZ -->
+  <section class="screen" id="s-quiz">
+    <div class="topbar">
+      <button class="btn ghost sub" type="button" style="width:auto;padding:8px 12px;margin:0" data-back>←</button>
+      <div class="brand" id="quiz-label">Question 1 / 5</div>
+      <div style="width:44px"></div>
+    </div>
+    <div class="dots" id="quiz-dots"></div>
+    <div class="q-text" id="quiz-q"></div>
+    <div class="options" id="quiz-options"></div>
+    <div class="spacer"></div>
+    <div class="footer-note" id="quiz-note"></div>
+  </section>
+
+  <!-- QUIZ RESULT -->
+  <section class="screen" id="s-result">
+    <div class="topbar">
+      <button class="btn ghost sub" type="button" style="width:auto;padding:8px 12px;margin:0" data-back>←</button>
+      <div class="brand">Your result</div>
+      <div style="width:44px"></div>
+    </div>
+    <img class="result-art" id="res-art" alt="">
+    <div class="result-head">
+      <h1 id="res-name">—</h1>
+      <div class="match" id="res-match"></div>
+    </div>
+    <div class="num" id="res-num"></div>
+    <p id="res-tagline"></p>
+
+    <button class="btn primary" type="button" id="res-share">Share my result</button>
+    <button class="btn" type="button" id="res-card">Get my card as an image</button>
+
+    <div class="paywall-card" id="res-paywall">
+      <h2>Unlock the full reading</h2>
+      <div id="res-locked"></div>
+      <button class="btn primary" type="button" id="res-unlock" style="margin-top:14px">Unlock the full reading</button>
+      <div class="footer-note" style="margin:8px 0 0">Free while the app is in beta. The Telegram version sells this reading for 50 Stars.</div>
+    </div>
+
+    <div class="reading" id="res-reading" hidden></div>
+    <div class="spacer"></div>
+    <div class="footer-note">Result #<span id="res-num-2"></span> · made in your browser</div>
+  </section>
+
+  <!-- DAILY -->
+  <section class="screen" id="s-daily">
+    <div class="topbar">
+      <button class="btn ghost sub" type="button" style="width:auto;padding:8px 12px;margin:0" data-back>←</button>
+      <div class="brand" id="daily-date">Daily puzzle</div>
+      <div class="timer" id="daily-timer">0.0s</div>
+    </div>
+    <h2 class="puz-prompt" id="daily-prompt"></h2>
+    <div class="puz-detail" id="daily-detail"></div>
+    <div class="choices" id="daily-choices"></div>
+    <div class="footer-note" id="daily-hint" hidden>You already played today. A new puzzle lands at 00:00 UTC.</div>
+    <div id="daily-after" hidden>
+      <div class="big-stat" id="daily-verdict"></div>
+      <p id="daily-explain"></p>
+      <div class="card-wrap" id="daily-cardwrap"></div>
+      <button class="btn primary" type="button" id="daily-share" hidden>Save my card</button>
+      <button class="btn ghost" type="button" id="daily-share-link" hidden>Challenge a friend</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="footer-note">Same puzzle for everyone, resets at 00:00 UTC.</div>
+  </section>
+
+  <!-- DUEL: who are you (creator) -->
+  <section class="screen" id="s-duel-name">
+    <div class="topbar">
+      <button class="btn ghost sub" type="button" style="width:auto;padding:8px 12px;margin:0" data-back>←</button>
+      <div class="brand">Duel</div>
+      <div style="width:44px"></div>
+    </div>
+    <h1>First, your name.</h1>
+    <p>Your friend will see it: “How well do you know Alex?” Nothing else leaves your phone.</p>
+    <input class="field" id="duel-name-input" type="text" maxlength="24" placeholder="Your name or nickname" autocomplete="given-name">
+    <button class="btn primary" type="button" id="duel-name-go">Continue</button>
+    <button class="btn ghost sub" type="button" id="duel-name-skip">Skip — stay anonymous</button>
+    <div class="spacer"></div>
+    <div class="footer-note">5 questions about yourself. Then one link.</div>
+  </section>
+
+  <!-- DUEL INVITE (challenger side) -->
+  <section class="screen" id="s-duel-invite">
+    <div class="topbar">
+      <button class="btn ghost sub" type="button" style="width:auto;padding:8px 12px;margin:0" data-back>←</button>
+      <div class="brand">Duel</div>
+      <div style="width:44px"></div>
+    </div>
+    <img class="result-art" id="duel-own-art" alt="" style="max-height:210px;object-fit:cover">
+    <h1 style="font-size:28px;margin-top:16px">Now send it to someone who thinks they know you.</h1>
+    <p>They will guess your five answers. Most people score 2 out of 5. Nobody has scored 5 yet.</p>
+    <div class="share-box" id="duel-link"></div>
+    <button class="btn primary" type="button" id="duel-share">Send the challenge</button>
+    <button class="btn ghost" type="button" id="duel-copy">Copy link</button>
+    <button class="btn ghost sub" type="button" id="duel-open">Open my challenge myself</button>
+    <div class="spacer"></div>
+    <div class="footer-note">Your answers live inside the link, not on a server.</div>
+  </section>
+
+  <!-- DUEL INTRO (guesser side) -->
+  <section class="screen" id="s-duel-intro">
+    <div class="topbar">
+      <button class="btn ghost sub" type="button" style="width:auto;padding:8px 12px;margin:0" data-back>←</button>
+      <div class="brand">A challenge</div>
+      <div style="width:44px"></div>
+    </div>
+    <h1 id="duel-intro-title" style="font-size:30px">How well do you know them?</h1>
+    <p>Five questions, five guesses about what they picked. You get a card at the end — and you can send your own challenge back.</p>
+    <input class="field" id="duel-intro-name" type="text" maxlength="24" placeholder="Your name (optional)" autocomplete="given-name">
+    <button class="btn primary" type="button" id="duel-intro-go">Start guessing</button>
+    <div class="spacer"></div>
+    <div class="footer-note">Their answers are never shown — only your score.</div>
+  </section>
+
+  <!-- DUEL RESULT (guesser side) -->
+  <section class="screen" id="s-duel-result">
+    <div class="topbar">
+      <button class="btn ghost sub" type="button" style="width:auto;padding:8px 12px;margin:0" data-back>←</button>
+      <div class="brand" id="duel-result-label">Duel result</div>
+      <div style="width:44px"></div>
+    </div>
+    <div class="big-stat" id="duel-score"></div>
+    <p id="duel-verdict"></p>
+    <div class="card-wrap" id="duel-cardwrap"></div>
+    <button class="btn primary" type="button" id="duel-result-share">Save my card</button>
+    <button class="btn ghost" type="button" id="duel-result-link">Send this challenge on</button>
+    <button class="btn ghost" type="button" id="duel-start-own">Start my own duel</button>
+    <div class="spacer"></div>
+  </section>
+
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
