@@ -38,6 +38,11 @@ The share card (1080×1350) is drawn on a `<canvas>` at the moment you tap
 share files) or downloaded as a PNG. Nothing is rendered on a server — the old
 Pillow renderer is not part of this build.
 
+Every card carries the site address in small type above the footer, because a
+picture posted in a chat with no link is a dead end. If the site moves to its
+own domain, change `SITE` at the top of `app.js` (and the links in `README`
+and `index.html`) — the cards pick it up.
+
 ## Duel links
 
 A challenge is fully self-contained:

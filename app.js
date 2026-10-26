@@ -8,6 +8,7 @@
   const DATA = window.WAY_DATA;
   const $ = (id) => document.getElementById(id);
   const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const SITE = "masterdobra-hash.github.io/miniapp-who-are-you";
   const QUESTIONS = DATA.questions;
   const ARCHETYPES = DATA.archetypes;
   const PUZZLES = DATA.puzzles;
@@ -150,7 +151,7 @@
   }
 
   /* ------------------------------------------------------------ card draw */
-  const CARD = { W: 1080, H: 1350, ART_H: 900, BG: "#09090d", FG: "#f4f4f7" };
+  const CARD = { W: 1080, H: 1350, ART_H: 860, BG: "#09090d", FG: "#f4f4f7" };
   const FONT_SPECS = ["400 36px Inter", "500 34px Inter", "500 30px Inter", "700 104px Inter", "600 26px Inter"];
 
   /* Canvas falls back to a system font if Inter has not loaded yet — wait for it. */
@@ -323,12 +324,14 @@
     const size = fitHeadline(ctx, opts.headline, W - 144, 104, 54);
     const lines = wrapLines(ctx, opts.subline, W - 150, 400, 36).slice(0, 3);
     const ruleY = H - 92 - 34;
+    const urlTop = ruleY - 56;
+    const subBottomMax = urlTop - 26;
 
     let headTop = top + 32;
     const naturalSubTop = headTop + size + 26;
     const subBottom = naturalSubTop + lines.length * 46;
-    if (subBottom > ruleY - 40) headTop -= subBottom - (ruleY - 40);
-    headTop = Math.max(headTop, top + 20);
+    if (subBottom > subBottomMax) headTop -= subBottom - subBottomMax;
+    headTop = Math.max(headTop, top + 12);
 
     ctx.fillStyle = rgba(c, 1);
     roundRect(ctx, 72, headTop - 46, 96, 6, 3);
@@ -346,6 +349,9 @@
       ctx.fillText(line, 72, y);
       y += 46;
     });
+
+    // the card has to work as an ad on its own: it carries the way back
+    labelText(ctx, SITE.toUpperCase(), 72, urlTop, 21, 500, "#5f6172", 2, false);
 
     const fy = H - 92;
     ctx.strokeStyle = "#2e2f3a";
